@@ -1,0 +1,57 @@
+{{>partial_header}}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Threading.Tasks;
+using System.Web.Http;
+//using Swashbuckle.AspNetCore.SwaggerGen;
+using Newtonsoft.Json;
+using System.ComponentModel.DataAnnotations;
+using {{packageName}}.Attributes;
+using {{packageName}}.Models;
+
+namespace {{packageName}}.Controllers
+{ {{#operations}}
+    /// <summary>
+    /// {{description}}
+    /// </summary>{{#description}}
+    [Description("{{description}}")]{{/description}}
+    public {{#partialController}}partial {{/partialController}}class {{classname}}Controller : Controller
+    { {{#operation}}
+        /// <summary>
+        /// {{#summary}}{{summary}}{{/summary}}
+        /// </summary>
+        {{#notes}}/// <remarks>{{notes}}</remarks>{{/notes}}{{#allParams}}
+        /// <param name="{{paramName}}">{{description}}</param>{{/allParams}}{{#responses}}
+        /// <response code="{{code}}">{{message}}</response>{{/responses}}
+        [{{httpMethod}}]
+        [Route("{{{basePathWithoutHost}}}{{{path}}}")]
+        [ValidateModelState]
+        public virtual {{#returnType}}{{{returnType}}}{{/returnType}}{{^returnType}}void{{/returnType}} {{operationId}}({{#allParams}}{{>pathParam}}{{>queryParam}}{{>bodyParam}}{{>formParam}}{{>headerParam}}{{#hasMore}}, {{/hasMore}}{{/allParams}})
+        { {{#responses}}
+{{#dataType}}
+            //TODO: Uncomment the next line to return response {{code}} or use other options such as return this.NotFound(), return this.BadRequest(..), ...
+            // return StatusCode({{code}}, default({{&dataType}}));
+{{/dataType}}
+{{^dataType}}
+            //TODO: Uncomment the next line to return response {{code}} or use other options such as return this.NotFound(), return this.BadRequest(..), ...
+            // return StatusCode({{code}});
+{{/dataType}}{{/responses}}
+            {{#partialController}}return {{operationId}}Impl({{#allParams}}{{paramName}}{{#hasMore}}, {{/hasMore}}{{/allParams}});{{/partialController}}
+{{#partialControllerNotSet}}
+{{#returnType}}
+            string exampleJson = null;
+            {{#examples}}
+            exampleJson = "{{{example}}}";
+            {{/examples}}
+            {{#isListCollection}}{{>listReturn}}{{/isListCollection}}{{^isListCollection}}{{#isMapContainer}}{{>mapReturn}}{{/isMapContainer}}{{^isMapContainer}}{{>objectReturn}}{{/isMapContainer}}{{/isListCollection}}
+            {{!TODO: defaultResponse, examples, auth, consumes, produces, nickname, externalDocs, imports, security}}
+            //TODO: Change the data returned
+            return example;{{/returnType}}{{^returnType}}
+            throw new NotImplementedException();{{/returnType}}{{/partialControllerNotSet}}
+        }
+        {{/operation}}
+    }
+{{/operations}}
+}
