@@ -5,7 +5,6 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web.Http;
-//using Swashbuckle.AspNetCore.SwaggerGen;
 using Newtonsoft.Json;
 using System.ComponentModel.DataAnnotations;
 using {{packageName}}.Attributes;
@@ -17,7 +16,7 @@ namespace {{packageName}}.Controllers
     /// {{description}}
     /// </summary>{{#description}}
     [Description("{{description}}")]{{/description}}
-    public {{#partialController}}partial {{/partialController}}class {{classname}}Controller : Controller
+    public {{#partialController}}partial {{/partialController}}class {{classname}}Controller : ApiController
     { {{#operation}}
         /// <summary>
         /// {{#summary}}{{summary}}{{/summary}}
@@ -28,7 +27,7 @@ namespace {{packageName}}.Controllers
         [{{httpMethod}}]
         [Route("{{{basePathWithoutHost}}}{{{path}}}")]
         [ValidateModelState]
-        public virtual {{#returnType}}{{{returnType}}}{{/returnType}}{{^returnType}}void{{/returnType}} {{operationId}}({{#allParams}}{{>pathParam}}{{>queryParam}}{{>bodyParam}}{{>formParam}}{{>headerParam}}{{#hasMore}}, {{/hasMore}}{{/allParams}})
+        public virtual IHttpActionResult {{operationId}}({{#allParams}}{{>pathParam}}{{>queryParam}}{{>bodyParam}}{{>formParam}}{{>headerParam}}{{#hasMore}}, {{/hasMore}}{{/allParams}})
         { {{#responses}}
 {{#dataType}}
             //TODO: Uncomment the next line to return response {{code}} or use other options such as return this.NotFound(), return this.BadRequest(..), ...
@@ -46,7 +45,7 @@ namespace {{packageName}}.Controllers
             {{#isListCollection}}{{>listReturn}}{{/isListCollection}}{{^isListCollection}}{{#isMapContainer}}{{>mapReturn}}{{/isMapContainer}}{{^isMapContainer}}{{>objectReturn}}{{/isMapContainer}}{{/isListCollection}}
             {{!TODO: defaultResponse, examples, auth, consumes, produces, nickname, externalDocs, imports, security}}
             //TODO: Change the data returned
-            return new ObjectResult(example);{{/returnType}}{{^returnType}}
+            return Ok(example);{{/returnType}}{{^returnType}}
             throw new NotImplementedException();{{/returnType}}{{/partialController}}
         }
         {{/operation}}
