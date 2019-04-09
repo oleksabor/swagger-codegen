@@ -6,10 +6,10 @@
 SET CSCPATH=%SYSTEMROOT%\Microsoft.NET\Framework\v4.0.30319
 
 if not exist ".\nuget.exe" powershell -Command "(new-object System.Net.WebClient).DownloadFile('https://dist.nuget.org/win-x86-commandline/latest/nuget.exe', '.\nuget.exe')"
-.\nuget.exe restore {{packageName}}.sln 
+.\nuget.exe restore IO.Swagger.sln 
 
 if not exist ".\bin" mkdir bin
 if not exist ".\bin\Release" mkdir bin\Release
 
-%cscpath%\msbuild /t:build /p:configuration=Release /p:platform="Any Cpu" {{packageName}}.sln
+%cscpath%\msbuild /t:build /p:configuration=Release /p:platform="Any Cpu" IO.Swagger.sln
 
