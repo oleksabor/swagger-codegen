@@ -54,6 +54,7 @@ public class AspNet4ServerCodegen extends AspNetCoreServerCodegen {
         supportingFiles.add(new SupportingFile("build.sh.mustache", "", "build.sh"));
         supportingFiles.add(new SupportingFile("build.bat.mustache", "", "build.bat"));
         supportingFiles.add(new SupportingFile("README.mustache", "", "README.md"));
+        supportingFiles.add(new SupportingFile("Solution.mustache", "", this.packageName + ".sln"));
         supportingFiles.add(new SupportingFile("gitignore", packageFolder, ".gitignore"));
 
         supportingFiles.add(new SupportingFile("Program.mustache", packageFolder, "Program.cs"));
