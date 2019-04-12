@@ -1,1 +1,1 @@
-{{#isBodyParam}}[FromBody]{{&dataType}} {{paramName}}{{/isBodyParam}}
+{{#isBodyParam}}{{#required}}[Required]{{/required}}[FromBody]{{&dataType}} {{paramName}}{{/isBodyParam}}
