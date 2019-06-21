@@ -7,6 +7,7 @@ import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import io.swagger.models.properties.UntypedProperty;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -270,7 +271,7 @@ public class DefaultCodegen {
     }
 
     /**
-     * Returns the common prefix of variables for enum naming if 
+     * Returns the common prefix of variables for enum naming if
      * two or more variables are present
      *
      * @param vars List of variable names
@@ -1178,6 +1179,8 @@ public class DefaultCodegen {
                 }
             }
             datatype = innerType;
+        } else if(p instanceof UntypedProperty){
+            datatype = "object";
         } else {
             if (p != null) {
                 datatype = p.getType();
