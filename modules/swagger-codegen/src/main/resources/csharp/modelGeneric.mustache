@@ -31,7 +31,8 @@
         {{#description}}
         /// <value>{{description}}</value>
         {{/description}}
-        [DataMember(Name="{{baseName}}", EmitDefaultValue={{emitDefaultValue}})]
+        [DataMember(Name="{{baseName}}", EmitDefaultValue={{emitDefaultValue}})]{{#vendorExtensions.x-attribute}}
+        [{{vendorExtensions.x-attribute}}]{{/vendorExtensions.x-attribute}}
         public {{#complexType}}{{{complexType}}}{{/complexType}}{{^complexType}}{{{datatypeWithEnum}}}{{/complexType}}{{^isContainer}}{{^required}}?{{/required}}{{/isContainer}} {{name}} { get; set; }
         {{/isEnum}}
         {{/vars}}

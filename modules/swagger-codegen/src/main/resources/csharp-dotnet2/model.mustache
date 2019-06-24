@@ -20,7 +20,8 @@ namespace {{modelPackage}} {
     /// </summary>{{#description}}
     /// <value>{{{description}}}</value>{{/description}}
     [DataMember(Name="{{baseName}}", EmitDefaultValue=false)]
-    [JsonProperty(PropertyName = "{{baseName}}")]
+    [JsonProperty(PropertyName = "{{baseName}}")]{{#vendorExtensions.x-attribute}}
+    [{{vendorExtensions.x-attribute}}]{{/vendorExtensions.x-attribute}}
     public {{{datatype}}} {{name}} { get; set; }
 
     {{/vars}}
