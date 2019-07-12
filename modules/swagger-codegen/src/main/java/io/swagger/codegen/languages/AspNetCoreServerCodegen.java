@@ -266,12 +266,11 @@ public class AspNetCoreServerCodegen extends AbstractCSharpCodegen {
         // To avoid unexpected behaviors when options are passed programmatically such as { "useCollection": "" }
         return super.processCompiler(compiler).emptyStringIsFalse(true);
     }
-<<<<<<< HEAD
-    
+
     public void setPartialController(boolean partialController) {
         this.partialController = partialController;
-=======
-
+    }
+    
     @Override
     public List<CodegenSecurity> fromSecurity(Map<String, SecuritySchemeDefinition> schemes) {
         final List<CodegenSecurity> securities = super.fromSecurity(schemes);
@@ -323,6 +322,5 @@ public class AspNetCoreServerCodegen extends AbstractCSharpCodegen {
             LOGGER.error("version '" + this.aspNetCoreVersion + "' is not supported, switching to default version: '" + DEFAULT_ASP_NET_CORE_VERSION + "'");
             this.aspNetCoreVersion = DEFAULT_ASP_NET_CORE_VERSION;
         }
->>>>>>> upstream/master
     }
 }
