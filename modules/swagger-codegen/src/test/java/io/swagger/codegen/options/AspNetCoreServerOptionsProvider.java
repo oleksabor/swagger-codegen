@@ -30,6 +30,9 @@ public class AspNetCoreServerOptionsProvider implements OptionsProvider {
                 .put(CodegenConstants.USE_COLLECTION, "false")
                 .put(CodegenConstants.RETURN_ICOLLECTION, "false")
                 .put(CodegenConstants.PARTIAL_CONTROLLER, "false")
+                .put(CodegenConstants.ASP_NET_CORE_VERSION, "2.2")
+                .put(CodegenConstants.INTERFACE_ONLY, "false")
+                .put(CodegenConstants.INTERFACE_CONTROLLER, "false")
                 .build();
     }
 
