@@ -1,0 +1,69 @@
+swagger: '2.0'
+info:
+  version: 'v1'
+  termsOfService: http://swagger.io/terms/
+
+definitions:
+
+  ErrorDetails:
+    type: object
+    required:
+      - StatusCode
+    properties:
+      StatusCode:
+        type: string
+      Message:
+        type: string
+
+  Signature:
+    type: object
+    properties:
+      Creator:
+        type: string
+        x-attribute: Hashed
+      Value:
+        type: string
+
+  SignatureContainer:
+    type: object
+    properties: 
+      SignatureAttr:
+        allOf:
+          - $ref: '#/definitions/Signature'
+        x-attribute: Hashed
+      Signature:
+        $ref: '#/definitions/Signature'
+
+  ErrorDetailsExt:
+    allOf:
+      - $ref: '#/definitions/ErrorDetails'
+      - type: object
+        properties:
+          Signature:
+            $ref: '#/definitions/Signature'
+            x-attribute: Hashed
+
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /SignatureContainer:
+    put:
+      tags:
+        - Container
+      parameters:
+        - in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/SignatureContainer'
+      responses:
+        '200':
+          description: a list of participants
+          schema:
+            $ref: '#/definitions/SignatureContainer'
+        default:
+          description: error payload
+          schema:
+            $ref: '#/definitions/ErrorDetailsExt'
