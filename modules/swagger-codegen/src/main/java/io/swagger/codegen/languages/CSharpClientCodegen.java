@@ -177,6 +177,17 @@ public class CSharpClientCodegen extends AbstractCSharpCodegen {
         regexModifiers.put('m', "Multiline");
         regexModifiers.put('s', "Singleline");
         regexModifiers.put('x', "IgnorePatternWhitespace");
+
+        supportedLibraries.put("restSharp", "RestSharp client: RestSharp.RestClient");
+		supportedLibraries.put("httpClient", "HTTP client: System.Net.HttpClient");
+		
+		CliOption libraryOption = new CliOption(CodegenConstants.LIBRARY, "library template (sub-template) to use");
+		libraryOption.setEnum(supportedLibraries);
+		// set restSharp as the default
+		libraryOption.setDefault("restSharp");
+		cliOptions.add(libraryOption);
+		
+		setLibrary("restSharp");
     }
 
     @Override
@@ -351,6 +362,7 @@ public class CSharpClientCodegen extends AbstractCSharpCodegen {
                 clientPackageDir, "IApiAccessor.cs"));
         supportingFiles.add(new SupportingFile("Configuration.mustache",
                 clientPackageDir, "Configuration.cs"));
+        LOGGER.info("apiClient {}", clientPackageDir);
         supportingFiles.add(new SupportingFile("ApiClient.mustache",
                 clientPackageDir, "ApiClient.cs"));
         supportingFiles.add(new SupportingFile("ApiException.mustache",
@@ -436,6 +448,11 @@ public class CSharpClientCodegen extends AbstractCSharpCodegen {
                     supportingFiles.add(new SupportingFile("TestProject.mustache", testPackageFolder, testPackageName + ".csproj"));
                 }
             }
+        }
+        if("httpClient".equals(getLibrary())) {
+            supportingFiles.add(new SupportingFile("RequestParameters.mustache", clientPackageDir, "RequestParameters.cs"));
+            supportingFiles.add(new SupportingFile("ResponseExtension.mustache", clientPackageDir, "ResponseExtension.cs"));
+            supportingFiles.add(new SupportingFile("InterceptResult.mustache", clientPackageDir, "InterceptResult.cs"));
         }
 
         additionalProperties.put("apiDocPath", apiDocPath);

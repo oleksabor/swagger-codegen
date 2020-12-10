@@ -62,6 +62,8 @@ public class CSharpClientOptionsTest extends AbstractOptionsTest {
             times = 1;
             clientCodegen.setValidatable(true);
             times = 1;
+//            clientCodegen.setLibrary(CSharpClientOptionsProvider.DEFAULT_LIBRARY_VALUE);
+//            times = 1;
         }};
     }
 }

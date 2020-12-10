@@ -1,0 +1,16 @@
+{{>partial_header}}
+using System;
+
+namespace {{packageName}}.Client
+{
+	/// <summary>
+	/// allows interceptor to return some data to the <see cref="ApiClient"/>
+	/// </summary>
+	class InterceptResult
+	{
+		/// <summary>
+		/// should it retry to send the request
+		/// </summary>
+		public bool Retry;
+	}
+}

@@ -1,0 +1,347 @@
+{{>partial_header}}
+
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Linq;
+using System.Net.Http;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace {{packageName}}.Client
+{
+	/// <summary>
+	/// request parameters helper
+	/// </summary>
+	public class RequestParameters
+	{
+		private readonly IReadableConfiguration config;
+
+		public List<KeyValuePair<String, String>> queryParams { get; }
+		public Object postBody { get; set; }
+		public Dictionary<String, String> headerParams { get; }
+		public Dictionary<String, String> formParams { get; }
+		//public Dictionary<String, FileParameter> fileParams;
+		public Dictionary<String, String> pathParams { get; }
+        public String contentType { get; set; }
+        
+        ///// <summary>
+        ///// Create FileParameter based on Stream.
+        ///// </summary>
+        ///// <param name="name">Parameter name.</param>
+        ///// <param name="stream">Input stream.</param>
+        ///// <returns>FileParameter.</returns>
+        //public FileParameter ParameterToFile(string name, Stream stream)
+        //{
+        //    if (stream is FileStream)
+        //        return FileParameter.Create(name, ReadAsBytes(stream), Path.GetFileName(((FileStream)stream).Name));
+        //    else
+        //        return FileParameter.Create(name, ReadAsBytes(stream), "no_file_name_provided");
+        //}
+
+        /// <summary>
+        /// initialized object instance
+        /// </summary>
+        /// <param name="config">configuration instance</param>
+        /// <param name="contentTypes">allowed content types</param>
+        /// <param name="accepts">accepted formats</param>
+        public RequestParameters(IReadableConfiguration config, string[] contentTypes = null, string[] accepts = null)
+		{
+            this.pathParams = new Dictionary<string, string>();
+            this.formParams = new Dictionary<string, string>();
+            this.pathParams = new Dictionary<string, string>();
+            this.headerParams = new Dictionary<string, string>();
+            this.queryParams = new List<KeyValuePair<string, string>>();
+			this.config = config;
+            
+            // order matters
+            if (contentTypes != null)
+                this.contentType = SelectHeaderContentType(contentTypes);
+            if (accepts != null)
+            {
+                var localVarHttpHeaderAccept = SelectHeaderAccept(accepts);
+                if (localVarHttpHeaderAccept != null)
+
+                    AddHeader("Accept", localVarHttpHeaderAccept);
+            }
+        }
+
+        /// <summary>
+        /// add path parameter value
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        public void AddPath(string name, object value)
+		{
+            if (value != null)
+                pathParams.Add(name, ParameterToString(value));
+		}
+       
+        /// <summary>
+        /// add header parameter value
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        public void AddHeader(string name, object value)
+        {
+            if (value != null)
+                headerParams.Add(name, ParameterToString(value));
+        }
+
+        /// <summary>
+        /// add body parameter value
+        /// </summary>
+        /// <param name="value"></param>
+        public void AddBody(object value)
+		{
+            if (value != null && value.GetType() != typeof(byte[]))
+            {
+                postBody = Serialize(value); // http body (model) parameter
+            }
+            else
+            {
+                postBody = value; // byte array
+            }
+
+        }
+
+        /// <summary>
+        /// add query parameter value
+        /// </summary>
+        /// <param name="format"></param>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        public void AddQuery(string format, string name, object value)
+		{
+            if (value != null)
+                queryParams.AddRange(ParameterToKeyValuePairs(format, name, value));
+		}
+
+        /// <summary>
+        /// add query parameter value
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        public void AddQuery(string name, object value)
+        {
+            if (value != null)
+                queryParams.AddRange(ParameterToKeyValuePairs("", name, value));
+        }
+
+        /// <summary>
+        /// add form parameter value
+        /// </summary>
+        /// <param name="name">parameter name</param>
+        /// <param name="value">parameter value</param>
+        public void AddForm(string name, object value)
+        {
+            if (value != null) 
+                formParams.Add(name, ParameterToString(value));
+        }
+
+        /// <summary>
+        /// Convert params to key/value pairs. 
+        /// Use collectionFormat to properly format lists and collections.
+        /// </summary>
+        /// <param name="collectionFormat">"multi" of <paramref name="name"/> causes collection from <paramref name="value"/> to be set multiple times </param>
+        /// <param name="name">Key name.</param>
+        /// <param name="value">Value object.</param>
+        /// <returns>A list of KeyValuePairs both key and value are encoded</returns>
+        public IEnumerable<KeyValuePair<string, string>> ParameterToKeyValuePairs(string collectionFormat, string name, object value)
+        {
+            var parameters = new List<KeyValuePair<string, string>>();
+
+            if (IsCollection(value) && collectionFormat == "multi")
+            {
+                var valueCollection = value as System.Collections.IEnumerable;
+                parameters.AddRange(from object item in valueCollection select new KeyValuePair<string, string>(name, ParameterToString(item)));
+            }
+            else
+            {
+                parameters.Add(new KeyValuePair<string, string>(name, ParameterToString(value)));
+            }
+
+            return parameters;
+        }
+
+        /// <summary>
+        /// Check if generic object is a collection.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns>True if object is a collection type</returns>
+        private static bool IsCollection(object value)
+        {
+            return value is System.Collections.IList || value is System.Collections.ICollection;
+        }
+
+        /// <summary>
+        /// Serialize an input (model) into JSON string
+        /// </summary>
+        /// <param name="obj">Object.</param>
+        /// <returns>JSON string.</returns>
+        public String Serialize(object obj)
+        {
+            try
+            {
+                return obj != null ? JsonConvert.SerializeObject(obj) : null;
+            }
+            catch (Exception e)
+            {
+                throw new ApiException(500, e.Message);
+            }
+        }
+
+        /// <summary>
+        /// concatenates query parameters from <see cref="queryParams"/>
+        /// </summary>
+        /// <returns>query string having encoded names and values</returns>
+        public string GetQuery()
+		{
+            var separator = "?";
+            var sb = new StringBuilder(); // is it the best way on .Net Standard 1.6 ?
+
+            foreach (var q in queryParams)
+            {
+                var key = Encode(q.Key);
+                var value = Encode(q.Value);
+
+                sb.Append($"{separator}{key}={value}");
+                separator = "&";
+            }
+            return sb.ToString();
+		}
+
+        /// <summary>
+        /// Select the Accept header's value from the given accepts array:
+        /// if JSON exists in the given array, use it;
+        /// otherwise use all of them (joining into a string)
+        /// </summary>
+        /// <param name="accepts">The accepts array to select from.</param>
+        /// <returns>The Accept header to use.</returns>
+        public String SelectHeaderAccept(String[] accepts)
+        {
+            if (accepts.Length == 0)
+                return null;
+
+            if (accepts.Contains("application/json", StringComparer.OrdinalIgnoreCase))
+                return "application/json";
+
+            return String.Join(",", accepts);
+        }
+
+        /// <summary>
+        ///Check if the given MIME is a JSON MIME.
+        ///JSON MIME examples:
+        ///    application/json
+        ///    application/json; charset=UTF8
+        ///    APPLICATION/JSON
+        ///    application/vnd.company+json
+        /// </summary>
+        /// <param name="mime">MIME</param>
+        /// <returns>Returns True if MIME type is json.</returns>
+        public bool IsJsonMime(String mime)
+        {
+            var jsonRegex = new Regex("(?i)^(application/json|[^;/ \t]+/[^;/ \t]+[+]json)[ \t]*(;.*)?$");
+            return mime != null && (jsonRegex.IsMatch(mime) || mime.Equals("application/json-patch+json"));
+        }
+
+        /// <summary>
+        /// Select the Content-Type header's value from the given content-type array:
+        /// if JSON type exists in the given array, use it;
+        /// otherwise use the first one defined in 'consumes'
+        /// </summary>
+        /// <param name="contentTypes">The Content-Type array to select from.</param>
+        /// <returns>The Content-Type header to use.</returns>
+        public String SelectHeaderContentType(String[] contentTypes)
+        {
+            if (contentTypes.Length == 0)
+                return "application/json";
+
+            foreach (var contentType in contentTypes)
+            {
+                if (IsJsonMime(contentType.ToLower()))
+                    return contentType;
+            }
+
+            return contentTypes[0]; // use the first content type specified in 'consumes'
+        }
+
+        /// <summary>
+        /// If parameter is DateTime, output in a formatted string (default ISO 8601), customizable with Configuration.DateTime.
+        /// If parameter is a list, join the list with ",".
+        /// Otherwise just return the string.
+        /// </summary>
+        /// <param name="obj">The parameter (header, path, query, form).</param>
+        /// <returns>Formatted and encoded string.</returns>
+        public string ParameterToString(object obj)
+        {
+            if (obj is DateTime)
+                // Return a formatted date string - Can be customized with Configuration.DateTimeFormat
+                // Defaults to an ISO 8601, using the known as a Round-trip date/time pattern ("o")
+                // https://msdn.microsoft.com/en-us/library/az4se3k1(v=vs.110).aspx#Anchor_8
+                // For example: 2009-06-15T13:45:30.0000000
+                return ((DateTime)obj).ToString(config.DateTimeFormat);
+            else if (obj is DateTimeOffset)
+                // Return a formatted date string - Can be customized with Configuration.DateTimeFormat
+                // Defaults to an ISO 8601, using the known as a Round-trip date/time pattern ("o")
+                // https://msdn.microsoft.com/en-us/library/az4se3k1(v=vs.110).aspx#Anchor_8
+                // For example: 2009-06-15T13:45:30.0000000
+                return ((DateTimeOffset)obj).ToString(config.DateTimeFormat);
+            else if (obj is System.Collections.IList)
+            {
+                var flattenedString = new StringBuilder();
+                foreach (var param in (System.Collections.IList)obj)
+                {
+                    if (flattenedString.Length > 0)
+                        flattenedString.Append(",");
+                    flattenedString.Append(Convert.ToString(param, neutral));
+                }
+                return flattenedString.ToString();
+            }
+            else
+                return Convert.ToString(obj, neutral);
+        }
+
+        static IFormatProvider neutral = System.Globalization.CultureInfo.InvariantCulture;
+
+        string Encode(string value)
+        {
+            return System.Net.WebUtility.UrlEncode(value);
+        }
+		
+        public void AddAuthKeyInHeader(string keyParamName)
+        {
+            if (!String.IsNullOrEmpty(config.GetApiKeyWithPrefix(keyParamName)))
+            {
+                AddHeader(keyParamName, config.GetApiKeyWithPrefix(keyParamName));
+            }
+        }
+
+        public void AddAuthKeyInQuery(string keyParamName)
+        {
+            if (!String.IsNullOrEmpty(config.GetApiKeyWithPrefix(keyParamName)))
+            {
+                AddQuery("", keyParamName, config.GetApiKeyWithPrefix(keyParamName));
+            }
+        }
+		
+        public void AddAuthBasic()
+        {
+            // http basic authentication required
+            if (!String.IsNullOrEmpty(config.Username) || !String.IsNullOrEmpty(config.Password))
+            {
+                AddHeader("Authorization", "Basic " + ApiClient.Base64Encode(config.Username + ":" + config.Password));
+            }
+        }
+		
+        public void AddAuthAccessToken()
+        {
+            // oauth required
+            if (!String.IsNullOrEmpty(config.AccessToken))
+            {
+                AddHeader("Authorization", "Bearer " + config.AccessToken);
+            }
+        }
+    }
+}

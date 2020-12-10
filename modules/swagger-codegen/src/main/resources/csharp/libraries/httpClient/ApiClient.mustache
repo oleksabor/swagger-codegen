@@ -1,0 +1,472 @@
+{{>partial_header}}
+using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using System.IO;
+{{^netStandard}}
+{{^supportsUWP}}
+using System.Web;
+{{/supportsUWP}}
+{{/netStandard}}
+using System.Linq;
+using System.Text;
+using Newtonsoft.Json;
+{{#netStandard}}
+using System.Net.Http;
+{{/netStandard}}
+{{^netStandard}}
+using System.Net.Http;
+{{/netStandard}}
+
+namespace {{packageName}}.Client
+{
+    /// <summary>
+    /// API client is mainly responsible for making the HTTP call to the API backend.
+    /// </summary>
+    {{>visibility}} partial class ApiClient : IDisposable
+    {
+        private JsonSerializerSettings serializerSettings = new JsonSerializerSettings
+        {
+            ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor
+        };
+
+        /// <summary>
+        /// Allows for extending request processing for <see cref="ApiClient"/> generated code.
+        /// </summary>
+        /// <param name="request">The RestSharp request object</param>
+        partial void InterceptRequest(HttpRequestMessage request);
+
+        /// <summary>
+        /// Allows for extending response processing for <see cref="ApiClient"/> generated code.
+        /// </summary>
+        /// <param name="request">The RestSharp request object</param>
+        /// <param name="response">The RestSharp response object</param>
+        partial void InterceptResponse(HttpRequestMessage request, HttpResponseMessage response, InterceptResult res);
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ApiClient" /> class
+        /// with default configuration.
+        /// </summary>
+        public ApiClient()
+			: this((string)null)
+        {}
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ApiClient" /> class
+        /// with default base path ({{{basePath}}}).
+        /// </summary>
+        /// <param name="config">An instance of Configuration.</param>
+        public ApiClient(Configuration config)
+        {
+            Configuration = config ?? {{packageName}}.Client.Configuration.Default;
+
+            RestClient = ClientFactory(Configuration);
+            {{#netStandard}}
+            //special http client adjustments
+            {{/netStandard}}
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ApiClient" /> class
+        /// with default configuration.
+        /// </summary>
+        /// <param name="basePath">The base path.</param>
+        public ApiClient(String basePath = "{{{basePath}}}")
+        {
+           if (String.IsNullOrEmpty(basePath))
+                throw new ArgumentException("basePath cannot be empty");
+
+            RestClient = ClientFactory(Configuration);
+            {{#netStandard}}
+            //special http client adjustments
+            {{/netStandard}}
+            Configuration = Client.Configuration.Default;
+        }
+        
+		/// <summary>
+        /// may be overriden to customize client initialization
+        /// </summary>
+        public static Func<IReadableConfiguration, HttpClient> ClientFactory = ClientFactoryDefault;
+
+        static HttpClient ClientFactoryDefault(IReadableConfiguration config)
+		{
+            var res = new HttpClient 
+            { 
+                BaseAddress = new Uri(config.BasePath), 
+                Timeout = TimeSpan.FromMilliseconds(config.Timeout),  
+            };
+            res.DefaultRequestHeaders.Add("User-Agent", config.UserAgent);
+            return res;
+        }
+
+        /// <summary>
+        /// Gets or sets the default API client for making HTTP calls.
+        /// </summary>
+        /// <value>The default API client.</value>
+        [Obsolete("ApiClient.Default is deprecated, please use 'Configuration.Default.ApiClient' instead.")]
+        public static ApiClient Default;
+		
+		private bool disposedValue;
+
+        /// <summary>
+        /// Gets or sets an instance of the IReadableConfiguration.
+        /// </summary>
+        /// <value>An instance of the IReadableConfiguration.</value>
+        /// <remarks>
+        /// <see cref="IReadableConfiguration"/> helps us to avoid modifying possibly global
+        /// configuration values from within a given client. It does not guarantee thread-safety
+        /// of the <see cref="Configuration"/> instance in any way.
+        /// </remarks>
+        public IReadableConfiguration Configuration { get; set; }
+
+        /// <summary>
+        /// Gets or sets the RestClient.
+        /// </summary>
+        /// <value>An instance of the RestClient</value>
+        public HttpClient RestClient { get; set; }
+
+        // Creates and sets up a RestRequest prior to a call.
+        private HttpRequestMessage PrepareRequest(String path, HttpMethod method, RequestParameters parameters)
+        {
+             foreach (var pathParameter in parameters.pathParams)
+                path = path.Replace(string.Concat("{", pathParameter.Key, "}"), pathParameter.Value);
+
+            var builder = new UriBuilder($"{Configuration.BasePath}/");
+            builder.Path = builder.Path + path.TrimStart('/');
+            builder.Query = parameters.GetQuery();
+
+            var address = builder.ToString();
+
+            var request = new HttpRequestMessage(method, address);
+            {{#netStandard}}
+            //special http client adjustments
+            {{/netStandard}}
+
+            // add header parameter, if any
+            foreach(var param in parameters.headerParams)
+                request.Headers.Add(param.Key, param.Value);
+
+            // add form parameter, if any
+            foreach(var param in parameters.formParams)
+                request.Headers.Add(param.Key, param.Value);
+
+            long contentLength = 0;
+
+            if (parameters.postBody != null) // http body (model or byte[]) parameter
+            {
+                var stringBody = parameters.postBody as string;
+                var contentValue = stringBody != null
+                    ? stringBody
+                    : JsonConvert.SerializeObject(parameters.postBody);
+                var content = new StringContent(contentValue, Encoding.UTF8, parameters.contentType);
+                request.Content = content; //.(contentType, postBody, ParameterType.RequestBody);   
+
+                contentLength = contentValue.Length;
+            }
+
+            return request;
+        }
+
+        /// <summary>
+        /// Makes the HTTP request (Sync).
+        /// </summary>
+        /// <param name="path">URL path.</param>
+        /// <param name="method">HTTP method.</param>
+        /// <returns>Object</returns>
+        public HttpResponseMessage CallApi(
+            String path, HttpMethod method, RequestParameters parameters)
+        {
+            var request = PrepareRequest(path, method, parameters);
+
+            InterceptRequest(request);
+            var res = new InterceptResult();
+            {{#netStandard}}
+            var response = RestClient.SendAsync(request).Result;
+            {{/netStandard}}
+            {{^netStandard}}
+            {{^supportsUWP}}
+            var response = RestClient.SendAsync(request).Result;
+            {{/supportsUWP}}
+            {{#supportsUWP}}
+            // Using async method to perform sync call (uwp-only)
+            var response = RestClient.SendAsync(request).Result;
+            {{/supportsUWP}}
+            {{/netStandard}}
+            InterceptResponse(request, response, res);
+            if (res.Retry)
+			{
+                request = PrepareRequest(path, method, parameters); //HttpClient requires to create new request message
+                response = RestClient.SendAsync(request).Result;
+                InterceptResponse(request, response, res);
+            }
+
+            return response;
+        }
+        {{#supportsAsync}}
+        /// <summary>
+        /// Makes the asynchronous HTTP request.
+        /// </summary>
+        /// <param name="path">URL path.</param>
+        /// <param name="method">HTTP method.</param>
+        /// <returns>The Task instance.</returns>
+        public async System.Threading.Tasks.Task<HttpResponseMessage> CallApiAsync(
+            String path, HttpMethod method, RequestParameters parameters)
+        {
+            var request = PrepareRequest(path, method, parameters);
+            InterceptRequest(request);
+            var res = new InterceptResult();
+            var response = await RestClient.SendAsync(request);
+            InterceptResponse(request, response, res);
+            if (res.Retry)
+            {
+                request = PrepareRequest(path, method, parameters); //HttpClient requires to create new request message
+                response = await RestClient.SendAsync(request);
+                InterceptResponse(request, response, res);
+            }
+            return response;
+        }{{/supportsAsync}}
+
+        /// <summary>
+        /// Escape string (url-encoded).
+        /// </summary>
+        /// <param name="str">String to be escaped.</param>
+        /// <returns>Escaped string.</returns>
+        public string EscapeString(string str)
+        {
+            return UrlEncode(str);
+        }
+        
+		/// <summary>
+        /// Deserialize the JSON string into a proper object.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="response"></param>
+        /// <returns></returns>
+        public T Deserialize<T>(HttpResponseMessage response)
+		{
+            return (T)Deserialize(response, typeof(T));
+		}
+
+        /// <summary>
+        /// Deserialize the JSON string into a proper object.
+        /// </summary>
+        /// <param name="response">The HTTP response.</param>
+        /// <param name="type">Object type.</param>
+        /// <returns>Object representation of the JSON string.</returns>
+        public object Deserialize(HttpResponseMessage response, Type type)
+        {
+            var headers = response.Headers;
+            if (type == typeof(byte[])) // return byte array
+            {
+                return response.Content.ReadAsByteArrayAsync().Result;
+            }
+
+            // TODO: ? if (type.IsAssignableFrom(typeof(Stream)))
+            if (type == typeof(Stream))
+            {
+                if (headers != null)
+                {
+                    var filePath = String.IsNullOrEmpty(Configuration.TempFolderPath)
+                        ? Path.GetTempPath()
+                        : Configuration.TempFolderPath;
+                    var regex = new Regex(@"Content-Disposition=.*filename=['""]?([^'""\s]+)['""]?$");
+                    foreach (var header in headers)
+                    {
+                        var match = regex.Match(header.Value.First());
+                        if (match.Success)
+                        {
+                            string fileName = filePath + SanitizeFilename(match.Groups[1].Value.Replace("\"", "").Replace("'", ""));
+                            File.WriteAllBytes(fileName, response.Content.ReadAsByteArrayAsync().Result);
+                            return new FileStream(fileName, FileMode.Open);
+                        }
+                    }
+                }
+                var stream = new MemoryStream(response.Content.ReadAsByteArrayAsync().Result);
+                return stream;
+            }
+
+            if (type.Name.StartsWith("System.Nullable`1[[System.DateTime")) // return a datetime object
+            {
+                return DateTime.Parse(response.Content.ReadAsStringAsync().Result,  null, System.Globalization.DateTimeStyles.RoundtripKind);
+            }
+
+            if (type == typeof(String) || type.Name.StartsWith("System.Nullable")) // return primitive type
+            {
+                return ConvertType(response.Content, type);
+            }
+
+            // at this point, it must be a model (json)
+            try
+            {
+                return JsonConvert.DeserializeObject(response.Content.ReadAsStringAsync().Result, type, serializerSettings);
+            }
+            catch (Exception e)
+            {
+                throw new ApiException(500, e.Message);
+            }
+        }
+
+        /// <summary>
+        /// Select the Accept header's value from the given accepts array:
+        /// if JSON exists in the given array, use it;
+        /// otherwise use all of them (joining into a string)
+        /// </summary>
+        /// <param name="accepts">The accepts array to select from.</param>
+        /// <returns>The Accept header to use.</returns>
+        public String SelectHeaderAccept(String[] accepts)
+        {
+            if (accepts.Length == 0)
+                return null;
+
+            if (accepts.Contains("application/json", StringComparer.OrdinalIgnoreCase))
+                return "application/json";
+
+            return String.Join(",", accepts);
+        }
+
+        /// <summary>
+        /// Encode string in base64 format.
+        /// </summary>
+        /// <param name="text">String to be encoded.</param>
+        /// <returns>Encoded string.</returns>
+        public static string Base64Encode(string text)
+        {
+            return System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(text));
+        }
+
+        /// <summary>
+        /// Dynamically cast the object into target type.
+        /// </summary>
+        /// <param name="fromObject">Object to be casted</param>
+        /// <param name="toObject">Target type</param>
+        /// <returns>Casted object</returns>
+        {{#supportsAsync}}
+        public static dynamic ConvertType(dynamic fromObject, Type toObject)
+        {{/supportsAsync}}
+        {{^supportsAsync}}
+        public static object ConvertType<T>(T fromObject, Type toObject) where T : class
+        {{/supportsAsync}}
+        {
+            return Convert.ChangeType(fromObject, toObject);
+        }
+
+        /// <summary>
+        /// Convert stream to byte array
+        /// </summary>
+        /// <param name="inputStream">Input stream to be converted</param>
+        /// <returns>Byte array</returns>
+        public static byte[] ReadAsBytes(Stream inputStream)
+        {
+            byte[] buf = new byte[16*1024];
+            using (MemoryStream ms = new MemoryStream())
+            {
+                int count;
+                while ((count = inputStream.Read(buf, 0, buf.Length)) > 0)
+                {
+                    ms.Write(buf, 0, count);
+                }
+                return ms.ToArray();
+            }
+        }
+
+        /// <summary>
+        /// URL encode a string
+        /// Credit/Ref: https://github.com/restsharp/RestSharp/blob/master/RestSharp/Extensions/StringExtensions.cs#L50
+        /// </summary>
+        /// <param name="input">String to be URL encoded</param>
+        /// <returns>Byte array</returns>
+        public static string UrlEncode(string input)
+        {
+            const int maxLength = 32766;
+
+            if (input == null)
+            {
+                throw new ArgumentNullException("input");
+            }
+
+            if (input.Length <= maxLength)
+            {
+                return Uri.EscapeDataString(input);
+            }
+
+            StringBuilder sb = new StringBuilder(input.Length * 2);
+            int index = 0;
+
+            while (index < input.Length)
+            {
+                int length = Math.Min(input.Length - index, maxLength);
+                string subString = input.Substring(index, length);
+
+                sb.Append(Uri.EscapeDataString(subString));
+                index += subString.Length;
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Sanitize filename by removing the path
+        /// </summary>
+        /// <param name="filename">Filename</param>
+        /// <returns>Filename</returns>
+        public static string SanitizeFilename(string filename)
+        {
+            Match match = Regex.Match(filename, @".*[/\\](.*)$");
+
+            if (match.Success)
+            {
+                return match.Groups[1].Value;
+            }
+            else
+            {
+                return filename;
+            }
+        }
+        {{^netStandard}}
+        {{#supportsUWP}}
+        /// <summary>
+        /// Convert stream to byte array
+        /// </summary>
+        /// <param name="stream">IO stream</param>
+        /// <returns>Byte array</returns>
+        public static byte[] ToByteArray(Stream stream)
+        {
+            stream.Position = 0;
+            byte[] buffer = new byte[stream.Length];
+            for (int totalBytesCopied = 0; totalBytesCopied < stream.Length;)
+                totalBytesCopied += stream.Read(buffer, totalBytesCopied, Convert.ToInt32(stream.Length) - totalBytesCopied);
+            return buffer;
+        }
+        {{/supportsUWP}}
+        {{/netStandard}}
+
+        /// <summary>
+        /// disposing 
+        /// </summary>
+        /// <param name="disposing"></param>
+		protected virtual void Dispose(bool disposing)
+		{
+			if (!disposedValue)
+			{
+				if (disposing)
+				{
+                    RestClient.Dispose();
+				}
+
+				// TODO: free unmanaged resources (unmanaged objects) and override finalizer
+				// TODO: set large fields to null
+				disposedValue = true;
+			}
+		}
+
+        /// <summary>
+        /// IDisposable implementation
+        /// </summary>
+		public void Dispose()
+		{
+			// Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+			Dispose(disposing: true);
+			GC.SuppressFinalize(this);
+		}
+    }
+}

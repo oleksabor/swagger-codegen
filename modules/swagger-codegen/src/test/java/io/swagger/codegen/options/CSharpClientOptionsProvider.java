@@ -14,6 +14,8 @@ public class CSharpClientOptionsProvider implements OptionsProvider {
     public static final String ALLOW_UNICODE_IDENTIFIERS_VALUE = "false";
     public static final String MODEL_PROPERTY_NAMING = "modelPropertyNaming";
 
+    public static final String DEFAULT_LIBRARY_VALUE = "restSharp";
+
     @Override
     public String getLanguage() {
         return "csharp";
@@ -43,6 +45,7 @@ public class CSharpClientOptionsProvider implements OptionsProvider {
                 .put(CodegenConstants.NETCORE_PROJECT_FILE, "false")
                 .put(CodegenConstants.MODEL_PROPERTY_NAMING, MODEL_PROPERTY_NAMING)
                 .put(CodegenConstants.VALIDATABLE, "true")
+                .put(CodegenConstants.LIBRARY, DEFAULT_LIBRARY_VALUE)
                 .build();
     }
 
